@@ -1,8 +1,8 @@
-Warning[2066] D:\Work\Project\Pic\18f\main.c 62 : type qualifier mismatch in assignment
-Warning[2066] D:\Work\Project\Pic\18f\main.c 72 : type qualifier mismatch in assignment
-Warning[2066] D:\Work\Project\Pic\18f\main.c 132 : type qualifier mismatch in assignment
-Warning[2066] D:\Work\Project\Pic\18f\main.c 169 : type qualifier mismatch in assignment
-Warning[2066] D:\Work\Project\Pic\18f\main.c 182 : type qualifier mismatch in assignment
-Warning[2066] D:\Work\Project\Pic\18f\main.c 201 : type qualifier mismatch in assignment
-Warning[2066] D:\Work\Project\Pic\18f\main.c 211 : type qualifier mismatch in assignment
-Warning[2066] D:\Work\Project\Pic\18f\main.c 213 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 62 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 72 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 84 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 113 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 126 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 145 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 154 : type qualifier mismatch in assignment
+Warning[2066] D:\Work\Project\Pic\Pic18f4520\main.c 156 : type qualifier mismatch in assignment
