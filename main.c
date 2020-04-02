@@ -26,23 +26,49 @@
 char lcd[16];
 
 char *nhietdo = "000.00 C";
-volatile int nhietdo_set = 37;			// khoi tao nhiet do setup ở mức 37 độ
+volatile int *counter = 0;
+int nhietdo_set = 37;			// khoi tao nhiet do setup ở mức 37 độ
 
 uint8_t kiemtra_button = 0;
 uint8_t setup_mode = 0;
+int second = 0;
+int time_setup = 40;
 
-void get_ds18b20(void);					// đọc nhiệt độ từ ds18b20 xuất ra màn hình lcd
-void nhietdo_setup(void);
+void get_ds18b20(char *temp);					// đọc nhiệt độ từ ds18b20 xuất ra màn hình lcd
+void Setup(void);
 void __aptrung(const int temp);
 int convert_string(char *string);
 void keu_coi_chip(void);
 
 void INT0(void);						// hàm phục vụ ngắt ngoài
+void TIMER0(void);
 #pragma code ngat_cao=0x08
 void interrupt_ngat_cao(void)
 {
 	INT0();
 }
+#pragma code ngat_thap=0x18
+void interrupt_ngat_thap(void)
+{
+	TIMER0();
+}
+
+#pragma code
+#pragma interrupt TIMER0
+void TIMER0(void)
+{
+	
+	if(INTCONbits.TMR0IF==1)
+	{
+		T0CONbits.TMR0ON = 0; 			// tat timer 0
+		second++;
+		TMR0L = (65536 - 46875)%256; 	//nap lai thanh ghi counter timer
+		TMR0H = (65536 - 46875)/256;		//nap lai thanh ghi counter timer
+		INTCONbits.TMR0IF = 0; 			//xoa co ngat timer
+		T0CONbits.TMR0ON = 1; 			// bat timer 0
+	}
+}
+
 #pragma code
 #pragma interrupt INT0
 void INT0(void)
@@ -55,46 +81,44 @@ void INT0(void)
 	{
 		
 		INTCON3bits.INT1IF=0;
+		if(setup_mode)
+			(*counter)++;										 	// tang gia tri button press
 		
-		nhietdo_set++;										 	// in gia tri button press
-		
-		lcd_gotoxy(0,1);
-		sprintf(&lcd[0], "NHIET DO: %2d C", nhietdo_set);
-		lcd_puts(lcd);
 	}
 	if(INTCON3bits.INT2IF==1)
 	{
 		INTCON3bits.INT2IF=0;
+		if(setup_mode)
+			(*counter)--;											// giam gia tri button press
 		
-		nhietdo_set--;											// in gia tri button press
-		
-		lcd_gotoxy(0,1);
-		sprintf(&lcd[0], "NHIET DO: %2d C", nhietdo_set); 
-		lcd_puts(lcd);
 	}
 }
 
-void get_ds18b20(void)
+void get_ds18b20(char *temp)
 {
 	//bat dau doc nhiet do va tra ve cho bien "nhietdo"
 	nhietdo = ds18b20_readtemp();
 	//di chuyen con tro lcd den hang 0 cot 0
 	lcd_gotoxy(0,0);
 	// xuat du lieu ra man hinh lcd
-	sprintf(&lcd[0],"ds18b20:"); lcd_puts(lcd);
+	sprintf(&lcd[0],"Ds18b20:"); lcd_puts(lcd);
 	lcd_puts(nhietdo);                         		// Display temperature
 }
 
 void main()
 {
-	T0CON=0x84; 				//khoi tao timer0
+	T0CON=0x85; 				//khoi tao timer0
 	ADCON1 = 0x0f;
 	INTCONbits.GIE=1;
 	INTCONbits.PEIE=1;
 	RCONbits.IPEN=1; 			// cho phep uu tien ngat
 	INTCON3bits.INT1IP=1;
 	INTCON3bits.INT2IP=1;
+	INTCON2bits.TMR0IP=0;
 	
+	// bat interrupt timer 0
+	INTCONbits.TMR0IE=1;
+	INTCONbits.TMR0IF=1;
 	// bat intertupt 0,1,2
 	INTCON3bits.INT1IE=1;
 	INTCON3bits.INT2IE=1;
@@ -109,8 +133,8 @@ void main()
 	Lcd_Init();
 	
 	// khoi tao lcd
-	lcd_gotoxy(0,0);
-	sprintf(&lcd[0],"Starting..."); lcd_puts(lcd);
+	lcd_gotoxy(2,0);
+	sprintf(&lcd[0],"MAY AP TRUNG"); lcd_puts(lcd);
 	delay_ms(500);
 	lcd_clear();
 
@@ -118,14 +142,15 @@ void main()
 	{
 		if(!MODE)
 		{
+			lcd_clear();
 			while(!MODE){																// giữ phím để chuyển chế độ
 				kiemtra_button++;
-				delay_ms(250);
+				delay_ms(60);
 				
-				lcd_gotoxy(14,0);
-				sprintf(&lcd[0], "-%d", kiemtra_button); lcd_puts(lcd);
+				lcd_gotoxy(kiemtra_button,0);
+				sprintf(&lcd[0], "*"); lcd_puts(lcd);
 				
-				if(kiemtra_button > 6) {setup_mode =~ setup_mode; lcd_clear(); break;} 	// cho qua 3 giay
+				if(kiemtra_button > 14) {setup_mode=~setup_mode; lcd_clear(); break;} 	// cho qua 2 giay
 			};
 			kiemtra_button = 0;
 			keu_coi_chip();
@@ -133,28 +158,48 @@ void main()
 		// vào chế độ SETUP
 		if(setup_mode)
 		{
-			nhietdo_setup();
+			Setup();
 			continue;
 		}
 		// doc gia tri cam bien
-		get_ds18b20();
+		get_ds18b20(nhietdo);
 		// kiểm soát nhiệt độ đã được set từ hàm nhietdo_setup()
 		__aptrung(nhietdo_set);
 		// in ra màn hình nhiệt độ ngưỡng đã setup
 		lcd_gotoxy(0,1);
-		sprintf(&lcd[0], "nhiet do set: %2d", nhietdo_set); lcd_puts(lcd);
-		
+		sprintf(&lcd[0], "ND:%3d C T:%4ds", nhietdo_set, (time_setup - second)); lcd[6]=223; lcd_puts(lcd);				// nhiệt độ cài đặt
+
 		delay_ms(2);                               								// Wait 2 mini second
 	}
 }
 
-void nhietdo_setup(void)
+void Setup(void)
 {
-	lcd_gotoxy(0,0);
-	sprintf(&lcd[0], "SETUP"); lcd_puts(lcd);
-	lcd_gotoxy(0,1);
-	sprintf(&lcd[0], "NHIET DO: %2d C", nhietdo_set); lcd_puts(lcd);
-	delay_ms(100);
+	// cài đặt nhiệt độ 
+	while(MODE)
+	{
+		counter=&nhietdo_set;
+		lcd_gotoxy(0,0);
+		sprintf(&lcd[0], "Cai dat nhiet do"); lcd_puts(lcd);
+		lcd_gotoxy(0,1);
+		sprintf(&lcd[0], "%3d C", nhietdo_set); lcd[3]=223; lcd_puts(lcd);
+		delay_ms(50);
+	}
+	delay_ms(500);
+	// cài đặt thời gian
+	 lcd_clear(); 
+	while(MODE)
+	{
+		counter=&time_setup;
+		lcd_gotoxy(0,0);
+		sprintf(&lcd[0], "Cai dat time"); lcd_puts(lcd);
+		lcd_gotoxy(0,1);
+		sprintf(&lcd[0], "%4d(s)", time_setup);lcd_puts(lcd);
+		delay_ms(50);
+	}
+	delay_ms(500);
+	setup_mode =~ setup_mode;
+	second = 0;
 }
 
 // ham dieu khiem khiem soat nhiet do ds18b20
@@ -173,6 +218,17 @@ void __aptrung(const int temp)
 		QUAT = 1;
 	}
 	else DEN = QUAT = 0;				// bang nhiet do setup
+	
+	if((time_setup - second) <= 0)
+	{									// điều khiển động cơ
+		second = 0;
+		while(second < 5)
+		{
+			MOTOR = 1;
+		}
+		MOTOR = 0;
+		second = 0;
+	}
 }
 
 // chuyen du lieu 2 so nhiet do tu string sang int
